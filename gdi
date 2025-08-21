@@ -1,0 +1,185 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Media;
+using System.Windows.Forms;
+using System.Threading.Tasks;
+
+namespace GDIVisualDemoUpgrade
+{
+    public class Shape
+    {
+        public RectangleF Rect;
+        public Color Color;
+        public float dx, dy;
+
+        public Shape(RectangleF rect, Color color, float dx, float dy)
+        {
+            Rect = rect;
+            Color = color;
+            this.dx = dx;
+            this.dy = dy;
+        }
+    }
+
+    public class MainForm : Form
+    {
+        private int stage = 0;
+        private Random rnd = new Random();
+        private Timer effectTimer;
+        private List<Shape> shapes = new List<Shape>();
+        private int width, height;
+
+        public MainForm()
+        {
+            this.Text = "GDI Visual Demo Upgrade";
+            this.WindowState = FormWindowState.Maximized;
+            this.BackColor = Color.Black;
+            this.DoubleBuffered = true;
+            this.FormBorderStyle = FormBorderStyle.None;
+
+            DialogResult result = MessageBox.Show(
+                "Are you sure you want to run this? This is GDI-ONLY.",
+                "Warning",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+            );
+
+            if (result == DialogResult.Yes)
+            {
+                width = this.ClientSize.Width;
+                height = this.ClientSize.Height;
+                StartStages();
+            }
+            else
+            {
+                this.Close();
+            }
+        }
+
+        private void StartStages()
+        {
+            effectTimer = new Timer();
+            effectTimer.Interval = 100; // faster updates
+            effectTimer.Tick += EffectTimer_Tick;
+            effectTimer.Start();
+        }
+
+        private void EffectTimer_Tick(object sender, EventArgs e)
+        {
+            stage++;
+            if (stage > 20)
+            {
+                effectTimer.Stop();
+                MessageBox.Show("Demo finished! Press OK to refresh the screen.", "Done");
+                shapes.Clear();
+                this.Invalidate();
+                stage = 0;
+            }
+            else
+            {
+                AddShapes(stage); // more shapes per stage
+                PlayBytebeat(stage);
+                MoveShapes();
+                this.Invalidate();
+            }
+        }
+
+        private void AddShapes(int stage)
+        {
+            int newShapes = stage * 5; // add more shapes each stage
+            for (int i = 0; i < newShapes; i++)
+            {
+                RectangleF rect = new RectangleF(
+                    rnd.Next(width), rnd.Next(height),
+                    rnd.Next(20, 100), rnd.Next(20, 100)
+                );
+                Color color = Color.FromArgb(rnd.Next(256), rnd.Next(256), rnd.Next(256));
+                float dx = (float)(rnd.NextDouble() * 10 - 5);
+                float dy = (float)(rnd.NextDouble() * 10 - 5);
+                shapes.Add(new Shape(rect, color, dx, dy));
+            }
+        }
+
+        private void MoveShapes()
+        {
+            foreach (var shape in shapes)
+            {
+                shape.Rect.X += shape.dx;
+                shape.Rect.Y += shape.dy;
+
+                if (shape.Rect.Right > width || shape.Rect.Left < 0) shape.dx *= -1;
+                if (shape.Rect.Bottom > height || shape.Rect.Top < 0) shape.dy *= -1;
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
+
+            // Draw bouncing shapes
+            foreach (var shape in shapes)
+            {
+                using (Brush brush = new SolidBrush(shape.Color))
+                {
+                    g.FillEllipse(brush, shape.Rect);
+                }
+            }
+
+            // Optional swirling lines
+            for (int i = 0; i < stage * 5; i++)
+            {
+                Pen pen = new Pen(Color.FromArgb(rnd.Next(256), rnd.Next(256), rnd.Next(256)));
+                int x1 = (int)(width / 2 + Math.Cos(Environment.TickCount / 100.0 + i) * width / 3);
+                int y1 = (int)(height / 2 + Math.Sin(Environment.TickCount / 100.0 + i) * height / 3);
+                int x2 = rnd.Next(width);
+                int y2 = rnd.Next(height);
+                g.DrawLine(pen, x1, y1, x2, y2);
+            }
+        }
+
+        private void PlayBytebeat(int stage)
+        {
+            Task.Run(() =>
+            {
+                int sampleRate = 8000;
+                short[] samples = new short[sampleRate / 4]; // shorter bursts
+
+                for (int t = 0; t < samples.Length; t++)
+                {
+                    samples[t] = (short)((t * ((t >> 5 | t >> 8)) >> (stage % 4)) & 0xFF);
+                }
+
+                using (var ms = new System.IO.MemoryStream())
+                using (var bw = new System.IO.BinaryWriter(ms))
+                {
+                    bw.Write(new char[4] { 'R', 'I', 'F', 'F' });
+                    bw.Write(36 + samples.Length * 2);
+                    bw.Write(new char[4] { 'W', 'A', 'V', 'E' });
+                    bw.Write(new char[4] { 'f', 'm', 't', ' ' });
+                    bw.Write(16);
+                    bw.Write((short)1);
+                    bw.Write((short)1);
+                    bw.Write(sampleRate);
+                    bw.Write(sampleRate * 2);
+                    bw.Write((short)2);
+                    bw.Write((short)16);
+                    bw.Write(new char[4] { 'd', 'a', 't', 'a' });
+                    bw.Write(samples.Length * 2);
+                    foreach (var s in samples) bw.Write(s);
+                    ms.Position = 0;
+                    using (var player = new SoundPlayer(ms))
+                        player.PlaySync();
+                }
+            });
+        }
+
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.Run(new MainForm());
+        }
+    }
+}
