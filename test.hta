@@ -1,0 +1,56 @@
+<html>
+<head>
+<title>Bouncing Box</title>
+<HTA:APPLICATION
+    ID="oHTA"
+    APPLICATIONNAME="BouncingBox"
+    BORDER="thin"
+    CAPTION="yes"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    SCROLL="no"
+    WINDOWSTATE="normal"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+>
+<style>
+  body {
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet);
+  }
+</style>
+</head>
+<body>
+<script>
+var dx = 8; // horizontal speed
+var dy = 6; // vertical speed
+
+// Start at random position
+var x = Math.floor(Math.random() * (screen.availWidth - 200));
+var y = Math.floor(Math.random() * (screen.availHeight - 150));
+var width = 200;
+var height = 150;
+
+// Set initial window size
+window.resizeTo(width, height);
+window.moveTo(x, y);
+
+function bounce() {
+    x += dx;
+    y += dy;
+
+    // Bounce off edges
+    if (x <= 0 || x + width >= screen.availWidth) dx *= -1;
+    if (y <= 0 || y + height >= screen.availHeight) dy *= -1;
+
+    window.moveTo(x, y);
+    setTimeout(bounce, 30); // ~33 FPS
+}
+
+bounce();
+</script>
+</body>
+</html>
